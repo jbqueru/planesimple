@@ -50,5 +50,63 @@
 	.68000
 	.text
 	.even
-	move.w	#0, -(sp)		; Term0
-	trap	#1			; GemDos
+	pea.l	Super
+	move.w	#38, -(sp)
+	trap	#14
+
+Super:	move.w	#$2700, sr
+	lea.l	Palette, a0
+	lea.l	$ffff8240.w, a1
+	moveq.l	#15, d7
+CopyPalette:
+	move.w	(a0)+, (a1)+
+	dbra	d7, CopyPalette
+
+	moveq.l	#0, d0
+	move.b	$ffff8201.w, d0
+	lsl.l	#8, d0
+	move.b	$ffff8203.w, d0
+	lsl.l	#8, d0
+	movea.l	d0, a0
+	move.l	d0, framebuffer
+
+	move.w	#15999, d7
+ClearScreen:
+	clr.w	(a0)+
+	dbra	d7, ClearScreen
+
+	movea.l	framebuffer, a0
+	moveq.l	#8, d0
+	moveq.l	#12, d7
+MBRow:
+	moveq.l	#9, d6
+MBUnit:
+	move.w	#%1100011011111100, (a0)
+	move.w	#%1110111011000110, 160(a0)
+	move.w	#%1111111011000110, 320(a0)
+	move.w	#%1101011011111100, 480(a0)
+	move.w	#%1100011011000110, 640(a0)
+	move.w	#%1100011011000110, 800(a0)
+	move.w	#%1100011011111100, 960(a0)
+	lea.l	16(a0), a0
+	dbra	d6, MBUnit
+	adda.w	d0, a0
+	neg.w	d0
+	lea.l	2400(a0), a0
+	dbra	d7, MBRow
+
+Loop:
+	bra.s	Loop
+
+	.data
+	.even
+Palette:
+	.dc.w	$000, $742, $463, $463
+	.dc.w	$657, $657, $657, $657
+	.dc.w	$663, $663, $663, $663
+	.dc.w	$663, $663, $663, $663
+
+	.bss
+	.even
+framebuffer:
+	.ds.l	1
