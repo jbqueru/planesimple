@@ -54,7 +54,13 @@
 	move.w	#38, -(sp)
 	trap	#14
 
-Super:	move.w	#$2700, sr
+Super:
+	move.w	#$2700, sr
+
+	move.b	#0, $fffffa07.w
+	move.b	#0, $fffffa09.w
+	move.l	#VBL, $70.w
+
 	lea.l	Palette, a0
 	lea.l	$ffff8240.w, a1
 	moveq.l	#15, d7
@@ -77,7 +83,7 @@ ClearScreen:
 
 	movea.l	framebuffer, a0
 	moveq.l	#8, d0
-	moveq.l	#12, d7
+	moveq.l	#24, d7
 MBRow:
 	moveq.l	#9, d6
 MBUnit:
@@ -92,21 +98,168 @@ MBUnit:
 	dbra	d6, MBUnit
 	adda.w	d0, a0
 	neg.w	d0
-	lea.l	2400(a0), a0
+	lea.l	1280(a0), a0
 	dbra	d7, MBRow
 
+	move.w	#$cafe, d5
+	moveq.l	#99, d7
+OneBall:
+	movea.l	framebuffer, a1
+
+	moveq.l	#0, d0
+	move.w	d5, d0
+	divu	#304, d0
+	swap	d0
+	move.w	d0, d1
+	andi	#$fff0, d0
+	lsr.w	d0
+	adda.w	d0, a1
+	andi	#15, d1
+
+	clr.w	d0
+	swap	d0
+	divu	#185, d0
+	swap	d0
+	mulu	#160, d0
+	adda.w	d0, a1
+
+	lea.l	BallData, a0
+	moveq.l	#15, d6
+BallRow:
+	move.l	(a0)+, d0
+	ror.l	d1, d0
+	and.w	d0, 10(a1)
+	swap	d0
+	and.w	d0,2(a1)
+	move.l	(a0)+, d0
+	ror.l	d1, d0
+	or.w	d0, 10(a1)
+	swap	d0
+	or.w	d0,2(a1)
+	lea.l	160(a1), a1
+	dbra	d6, BallRow
+
+	ror.w	#3, d5
+	addi.w	#$beef, d5
+
+	dbra	d7, OneBall
+
+	movea.l	framebuffer, a0
+	adda.w	#2572, a0
+	moveq.l	#17, d7
+Hloop:
+	move.w	#$ffff, (a0)
+	move.w	#$ffff, 160(a0)
+	move.w	#$ffff, 2*160(a0)
+	move.w	#$ffff, 3*160(a0)
+	move.w	#$ffff, 164*160(a0)
+	move.w	#$ffff, 165*160(a0)
+	move.w	#$ffff, 166*160(a0)
+	move.w	#$ffff, 167*160(a0)
+	adda.w	#8, a0
+	dbra	d7, Hloop
+	adda.w	#496, a0
+	move.w	#159, d7
+Vloop:
+	move.w	#$f000, (a0)
+	move.w	#$000f, 136(a0)
+	adda.w	#160, a0
+	dbra	d7, Vloop
+
+	movea.l	framebuffer, a0
+	lea.l	88(a0), a0
+	moveq.l	#$ffffffff, d0
+	move.w	#199, d7
+Split:
+	move.w	d0, 6(a0)
+	move.w	d0, 14(a0)
+	move.w	d0, 22(a0)
+	move.w	d0, 30(a0)
+	move.w	d0, 38(a0)
+	move.w	d0, 46(a0)
+	move.w	d0, 54(a0)
+	move.w	d0, 62(a0)
+	move.w	d0, 70(a0)
+	lea.l	160(a0), a0
+	dbra	d7, Split
+
+
+	lea.l	distortdata, a0
+	moveq.l	#-1, d0
+	.rept	32
+	move.l	d0, (a0)+
+	lsr.l	d0
+	.endr
+	lea.l	distortdata + 256, a0
+	moveq.l	#-1, d0
+	.rept	32
+	move.l	d0, -(a0)
+	lsr.l	d0
+	.endr
+
+	move.l	#distortdata, readdistort
 Loop:
+
+	movea.l	framebuffer, a1
+	lea.l	78(a1), a1
+	move.w	#199, d7
+	movea.l	readdistort, a0
+	lea.l	4(a0), a0
+	cmpa.l	#distortdata + 256, a0
+	bne.s	IOK
+	lea.l	-256(a0), a0
+IOK:
+	move.l	a0, readdistort
+Distort:
+	move.w	(a0)+, (a1)
+	move.w	(a0)+, 8(a1)
+	cmpa.l	#distortdata + 256, a0
+	bne.s	BOK
+	lea.l	-256(a0), a0
+BOK:
+	lea.l	160(a1), a1
+	dbra	d7, Distort
+
+	stop 	#$2300
+
 	bra.s	Loop
+
+VBL:
+	rte
 
 	.data
 	.even
 Palette:
-	.dc.w	$000, $742, $463, $463
+	.dc.w	$000, $742, $000, $742
 	.dc.w	$657, $657, $657, $657
-	.dc.w	$663, $663, $663, $663
-	.dc.w	$663, $663, $663, $663
+	.dc.w	$000, $000, $463, $463
+	.dc.w	$657, $657, $657, $657
+
+BallData:
+	.dc.l	%11111000000111111111111111111111, %00000000000000000000000000000000
+	.dc.l	%11100000000001111111111111111111, %00000011110000000000000000000000
+	.dc.l	%11000000000000111111111111111111, %00001111111100000000000000000000
+	.dc.l	%10000000000000011111111111111111, %00011011111110000000000000000000
+	.dc.l	%10000000000000011111111111111111, %00110111111111000000000000000000
+	.dc.l	%00000000000000001111111111111111, %00101111111111000000000000000000
+	.dc.l	%00000000000000001111111111111111, %01101111111111100000000000000000
+	.dc.l	%00000000000000001111111111111111, %01111111111111100000000000000000
+	.dc.l	%00000000000000001111111111111111, %01111111111111100000000000000000
+	.dc.l	%00000000000000001111111111111111, %01111111111111100000000000000000
+	.dc.l	%00000000000000001111111111111111, %00111111111111000000000000000000
+	.dc.l	%10000000000000011111111111111111, %00111111111111000000000000000000
+	.dc.l	%10000000000000011111111111111111, %00011111111110000000000000000000
+	.dc.l	%11000000000000111111111111111111, %00001111111100000000000000000000
+	.dc.l	%11100000000001111111111111111111, %00000011110000000000000000000000
+	.dc.l	%11111000000111111111111111111111, %00000000000000000000000000000000
 
 	.bss
 	.even
 framebuffer:
 	.ds.l	1
+
+readdistort:
+	.ds.l	1
+
+distortdata:
+	.ds.l	64
