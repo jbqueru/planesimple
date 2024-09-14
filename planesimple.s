@@ -98,7 +98,7 @@ MBUnit:
 	dbra	d6, MBUnit
 	adda.w	d0, a0
 	neg.w	d0
-	lea.l	1280(a0), a0
+	lea.l	1120(a0), a0
 	dbra	d7, MBRow
 
 	move.w	#$cafe, d5
