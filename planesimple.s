@@ -214,6 +214,8 @@ SupervisorStart:
 	move.w	sr, save_sr
 	move.w	#$2700, sr
 
+	move.b	MFP_TBCR.w, save_tbcr
+	move.b	#0, MFP_TBCR.w
 	move.b	MFP_IERA.w, save_iera
 	move.b	#0, MFP_IERA.w
 	move.b	MFP_IERB.w, save_ierb
@@ -248,8 +250,6 @@ CopyPalette:
 	move.w	(a0)+, (a1)+
 	dbra	d7, CopyPalette
 
-	move.b	MFP_TBCR.w, save_tbcr
-	move.b	#0, MFP_TBCR.w
 	move.b	#20, MFP_TBDR.w
 	move.b	#8, MFP_TBCR.w
 	move.b	#1, MFP_IERA.w
@@ -427,12 +427,13 @@ RestorePalette:
 	move.w	(a0)+, (a1)+
 	dbra	d7,RestorePalette
 
-	move.b	save_tbcr, MFP_TBCR.w
+	move.b	#0, MFP_TBCR.w
 	move.b	save_vr, MFP_VR.w
 	move.b	save_imrb, MFP_IMRB.w
 	move.b	save_imra, MFP_IMRA.w
 	move.b	save_ierb, MFP_IERB.w
 	move.b	save_iera, MFP_IERA.w
+	move.b	save_tbcr, MFP_TBCR.w
 	move.l	save_hbl, HANDLER_TIMER_B
 	move.l	save_vbl, HANDLER_VBL
 	move.w	save_sr, sr
