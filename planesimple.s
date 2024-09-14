@@ -59,7 +59,16 @@ Super:
 
 	move.b	#0, $fffffa07.w
 	move.b	#0, $fffffa09.w
+	move.b	#0, $fffffa0b.w
+	move.b	#0, $fffffa0d.w
+	move.b	#0, $fffffa0f.w
+	move.b	#0, $fffffa11.w
+	move.b	#0, $fffffa13.w
+	move.b	#0, $fffffa15.w
+	move.b	#64, $fffffa17.w
 	move.l	#VBL, $70.w
+	move.l	#HBL, $120.w
+	move.w	#$2300, sr
 
 	lea.l	Palette, a0
 	lea.l	$ffff8240.w, a1
@@ -67,6 +76,16 @@ Super:
 CopyPalette:
 	move.w	(a0)+, (a1)+
 	dbra	d7, CopyPalette
+
+	stop	#$2300
+	stop	#$2300
+
+	move.b	#0, $fffffa1b.w
+	move.b	#20, $fffffa21.w
+	move.b	#8, $fffffa1b.w
+	move.b	#1, $fffffa07.w
+	move.b	#1, $fffffa0b.w
+	move.b	#1, $fffffa13.w
 
 	moveq.l	#0, d0
 	move.b	$ffff8201.w, d0
@@ -220,11 +239,19 @@ BOK:
 	lea.l	160(a1), a1
 	dbra	d7, Distort
 
-	stop 	#$2300
+	move.l	vbl_count, d0
+WaitVBL:
+	cmp.l	vbl_count, d0
+	beq.s	WaitVBL
 
 	bra.s	Loop
 
 VBL:
+	addq.l	#1, vbl_count
+	rte
+
+HBL:
+	not.w	$ffff8240.w
 	rte
 
 	.data
@@ -255,6 +282,9 @@ BallData:
 
 	.bss
 	.even
+vbl_count:
+	.ds.l	1
+
 framebuffer:
 	.ds.l	1
 
