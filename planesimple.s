@@ -34,7 +34,7 @@
 ;	- Mnemomics and registers are lowercase unless otherwise required
 ;	- Global symbols for code are CamelCase
 ;	- Symbols for variables are snake_case
-;	- Symbols for hardware registers are ALL_CAPS
+;	- Symbols for hardware registers and OS constants are ALL_CAPS
 ;	- Related symbols start with the same prefix (so they sort together)
 ;	- hexadecimal constants are lowercase ($eaf00d).
 ;
@@ -47,50 +47,218 @@
 ;		cause confusion. E.g. use movea instead of move on 680x0 when
 ;		the code relies on the flags not getting modified.
 
+; #############################################################################
+; #############################################################################
+; ###                                                                       ###
+; ###                                                                       ###
+; ###                     System and hardware constants                     ###
+; ###                                                                       ###
+; ###                                                                       ###
+; #############################################################################
+; #############################################################################
+
+; ######################
+; ######################
+; ###                ###
+; ###  Trap numbers  ###
+; ###                ###
+; ######################
+; ######################
+
+GEMDOS	.equ	1
+XBIOS	.equ	14
+
+; #########################
+; #########################
+; ###                   ###
+; ###  XBIOS functions  ###
+; ###                   ###
+; #########################
+; #########################
+
+SUPEXEC	.equ	38
+
+; ##########################
+; ##########################
+; ###                    ###
+; ###  GEMDOS functions  ###
+; ###                    ###
+; ##########################
+; ##########################
+
+TERM0	.equ	0
+
+; ############################
+; ############################
+; ###                      ###
+; ###  Exception handlers  ###
+; ###                      ###
+; ############################
+; ############################
+
+HANDLER_VBL	.equ	$70
+HANDLER_TIMER_B	.equ	$120
+
+; ############################
+; ############################
+; ###                      ###
+; ###  Graphics registers  ###
+; ###                      ###
+; ############################
+; ############################
+
+GFX_VBAH	.equ	$ffff8201
+GFX_VBAM	.equ	$ffff8203
+GFX_SYNC	.equ	$ffff820a
+GFX_COLOR0	.equ	$ffff8240
+GFX_PALETTE	.equ	GFX_COLOR0
+GFX_RES		.equ	$ffff8260
+
+; #################################
+; #################################
+; ###                           ###
+; ###  MC68901 (MFP) registers  ###
+; ###                           ###
+; #################################
+; #################################
+
+MFP_IERA	.equ	$fffffa07
+MFP_IERB	.equ	$fffffa09
+MFP_IPRA	.equ	$fffffa0b
+MFP_IPRB	.equ	$fffffa0d
+MFP_IMRA	.equ	$fffffa13
+MFP_IMRB	.equ	$fffffa15
+MFP_VR		.equ	$fffffa17
+MFP_TBCR	.equ	$fffffa1b
+MFP_TBDR	.equ	$fffffa21
+
+; #############################################################################
+; #############################################################################
+; ###                                                                       ###
+; ###                                                                       ###
+; ###                                 Init                                  ###
+; ###                                                                       ###
+; ###                                                                       ###
+; #############################################################################
+; #############################################################################
+
 	.68000
+	.bss
+	.even
+BssStart:				; marker at start of BSS so that we can
+					; clear the whole BSS for environments
+					; that don't clear it for us
+
 	.text
 	.even
-	pea.l	Super
-	move.w	#38, -(sp)
-	trap	#14
 
-Super:
+; #####################
+; #####################
+; ###               ###
+; ###  Entry point  ###
+; ###               ###
+; #####################
+; #####################
+
+UserStart:
+
+; ***************
+; **           **
+; ** Clear BSS **
+; **           **
+; ***************
+
+; TODO: optimize. A lot.
+; TODO: run this from a clear screen, with music on
+
+	lea.l	BssStart, a0
+BssClear:
+	clr.w	(a0)+
+	cmpa.l	#BssEnd, a0
+	bne.s	BssClear
+
+; *******************************
+; **                           **
+; ** Switch to supervisor mode **
+; **                           **
+; *******************************
+
+	pea.l	SupervisorStart
+	move.w	#SUPEXEC, -(sp)
+	trap	#XBIOS
+	lea.l	6(sp), sp
+
+; ***************************
+; **                       **
+; ** Exit back to launcher **
+; **                       **
+; ***************************
+
+	move.w	#TERM0, -(sp)
+	trap	#GEMDOS
+
+; ################################
+; ################################
+; ###                          ###
+; ###  Supervisor entry point  ###
+; ###                          ###
+; ################################
+; ################################
+
+SupervisorStart:
+	btst.b	#1, $ffff8260.w
+	beq.s	.ColorMonitor
+	rts
+.ColorMonitor:
+
+	move.w	sr, save_sr
 	move.w	#$2700, sr
 
-	move.b	#0, $fffffa07.w
-	move.b	#0, $fffffa09.w
-	move.b	#0, $fffffa0b.w
-	move.b	#0, $fffffa0d.w
-	move.b	#0, $fffffa0f.w
-	move.b	#0, $fffffa11.w
-	move.b	#0, $fffffa13.w
-	move.b	#0, $fffffa15.w
-	move.b	#64, $fffffa17.w
-	move.l	#VBL, $70.w
-	move.l	#HBL, $120.w
+	move.b	MFP_IERA.w, save_iera
+	move.b	#0, MFP_IERA.w
+	move.b	MFP_IERB.w, save_ierb
+	move.b	#0, MFP_IERB.w
+	move.b	MFP_IMRA.w, save_imra
+	move.b	#0, MFP_IMRA.w
+	move.b	MFP_IMRB.w, save_imrb
+	move.b	#0, MFP_IMRB.w
+	move.b	#0, MFP_IPRA.w
+	move.b	#0, MFP_IPRB.w
+	move.b	MFP_VR.w, save_vr
+	move.b	#64, MFP_VR.w
+
+	move.l	HANDLER_VBL.w, save_vbl
+	move.l	#VBL, HANDLER_VBL.w
+	move.l	HANDLER_TIMER_B.w, save_hbl
+	move.l	#HBL, HANDLER_TIMER_B.w
 	move.w	#$2300, sr
+
+	lea.l	vbl_count, a0
+	move.l	(a0), d0
+.WaitVbl:
+	cmp.l	(a0), d0
+	beq.s	.WaitVbl
 
 	lea.l	Palette, a0
 	lea.l	$ffff8240.w, a1
+	lea.l	save_palette, a2
 	moveq.l	#15, d7
 CopyPalette:
+	move.w	(a1), (a2)+
 	move.w	(a0)+, (a1)+
 	dbra	d7, CopyPalette
 
-	stop	#$2300
-	stop	#$2300
-
-	move.b	#0, $fffffa1b.w
-	move.b	#20, $fffffa21.w
-	move.b	#8, $fffffa1b.w
-	move.b	#1, $fffffa07.w
-	move.b	#1, $fffffa0b.w
-	move.b	#1, $fffffa13.w
+	move.b	MFP_TBCR.w, save_tbcr
+	move.b	#0, MFP_TBCR.w
+	move.b	#20, MFP_TBDR.w
+	move.b	#8, MFP_TBCR.w
+	move.b	#1, MFP_IERA.w
+	move.b	#1, MFP_IMRA.w
 
 	moveq.l	#0, d0
-	move.b	$ffff8201.w, d0
+	move.b	GFX_VBAH.w, d0
 	lsl.l	#8, d0
-	move.b	$ffff8203.w, d0
+	move.b	GFX_VBAM.w, d0
 	lsl.l	#8, d0
 	movea.l	d0, a0
 	move.l	d0, framebuffer
@@ -244,7 +412,31 @@ WaitVBL:
 	cmp.l	vbl_count, d0
 	beq.s	WaitVBL
 
+	cmp.b	#$39, $fffffc02.w
+	beq.s	Exit
+
 	bra.s	Loop
+
+Exit:
+	move.w	#$2700, sr
+
+	lea.l	save_palette, a0
+	lea.l	$ffff8240.w, a1
+	moveq.l	#15, d7
+RestorePalette:
+	move.w	(a0)+, (a1)+
+	dbra	d7,RestorePalette
+
+	move.b	save_tbcr, MFP_TBCR.w
+	move.b	save_vr, MFP_VR.w
+	move.b	save_imrb, MFP_IMRB.w
+	move.b	save_imra, MFP_IMRA.w
+	move.b	save_ierb, MFP_IERB.w
+	move.b	save_iera, MFP_IERA.w
+	move.l	save_hbl, HANDLER_TIMER_B
+	move.l	save_vbl, HANDLER_VBL
+	move.w	save_sr, sr
+	rts
 
 VBL:
 	addq.l	#1, vbl_count
@@ -282,6 +474,42 @@ BallData:
 
 	.bss
 	.even
+
+; #############################################################################
+; #############################################################################
+; ###                                                                       ###
+; ###                                                                       ###
+; ###                          Save system values                           ###
+; ###                                                                       ###
+; ###                                                                       ###
+; #############################################################################
+; #############################################################################
+
+save_sr:
+	.ds.w	1
+
+save_iera:
+	.ds.b	1
+save_ierb:
+	.ds.b	1
+save_imra:
+	.ds.b	1
+save_imrb:
+	.ds.b	1
+save_vr:
+	.ds.b	1
+save_tbcr:
+	.ds.b	1
+
+	.even
+save_vbl:
+	.ds.l	1
+save_hbl:
+	.ds.l	1
+
+save_palette:
+	.ds.w	16
+
 vbl_count:
 	.ds.l	1
 
@@ -293,3 +521,9 @@ readdistort:
 
 distortdata:
 	.ds.l	64
+
+	.even
+BssEnd:					; marker at end of BSS so that we can
+					; clear the whole BSS for environments
+					; that don't clear it for us
+	.end
