@@ -122,6 +122,7 @@ GFX_RES		.equ	$ffff8260
 ; #################################
 ; #################################
 
+MFP_AER		.equ	$fffffa03
 MFP_IERA	.equ	$fffffa07
 MFP_IERB	.equ	$fffffa09
 MFP_IPRA	.equ	$fffffa0b
@@ -214,8 +215,6 @@ SupervisorStart:
 	move.w	sr, save_sr
 	move.w	#$2700, sr
 
-	move.b	MFP_TBCR.w, save_tbcr
-	move.b	#0, MFP_TBCR.w
 	move.b	MFP_IERA.w, save_iera
 	move.b	#0, MFP_IERA.w
 	move.b	MFP_IERB.w, save_ierb
@@ -228,6 +227,11 @@ SupervisorStart:
 	move.b	#0, MFP_IPRB.w
 	move.b	MFP_VR.w, save_vr
 	move.b	#64, MFP_VR.w
+	move.b	MFP_TBCR.w, save_tbcr
+	move.b	#0, MFP_TBCR.w
+	move.b	MFP_AER.w, save_aer
+	bclr.b	#3, MFP_AER.w
+
 
 	move.l	HANDLER_VBL.w, save_vbl
 	move.l	#VBL, HANDLER_VBL.w
@@ -433,6 +437,7 @@ RestorePalette:
 	move.b	save_imra, MFP_IMRA.w
 	move.b	save_ierb, MFP_IERB.w
 	move.b	save_iera, MFP_IERA.w
+	move.b	save_aer, MFP_AER.w
 	move.b	save_tbcr, MFP_TBCR.w
 	move.l	save_hbl, HANDLER_TIMER_B
 	move.l	save_vbl, HANDLER_VBL
@@ -489,6 +494,8 @@ BallData:
 save_sr:
 	.ds.w	1
 
+save_aer:
+	.ds.b	1
 save_iera:
 	.ds.b	1
 save_ierb:
