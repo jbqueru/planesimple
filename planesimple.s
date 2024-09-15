@@ -206,7 +206,7 @@ BssClear:
 ; ################################
 
 SupervisorStart:
-	btst.b	#1, $ffff8260.w
+	btst.b	#1, GFX_RES.w
 	beq.s	.ColorMonitor
 	rts
 .ColorMonitor:
